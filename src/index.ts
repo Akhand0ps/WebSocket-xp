@@ -3,36 +3,61 @@ import {WebSocketServer,WebSocket} from "ws";
 
 const wss = new WebSocketServer({port:8080});
 
-let users=0;
-let allSockets: WebSocket[]=[];
+interface User {
+
+    socket: WebSocket;
+    room: string;
+}
+let allSockets: User[]=[];
 
 wss.on("connection", (socket)=>{
 
-    allSockets.push(socket);
-    users +=1;
-    console.log("user connected: ", users);
+   
+    socket.on("message",(message:string)=>{
 
-    socket.on("message",(message)=>{
 
-        console.log("Message recieved: "+message.toString());
+        const parsedMsg = JSON.parse(message);
+        // console.log(parsedMsg);
 
-        // for(let i=0;i<allSockets.length;i++){
+        if(parsedMsg.type === 'join'){
 
-        //     const s = allSockets[i];
-        //     //@ts-ignore
-        //     s.send(message.toString()+": sent from the server");
+            console.log('user joined room '+parsedMsg.payload.roomId);
 
-        // }
+            allSockets.push({
+                socket,
+                room:parsedMsg.payload.roomId
+            })
+        }
 
-        allSockets.forEach((s:WebSocket)=>{
-            s.send(message.toString()+": sent from the server");
-            console.log("size allsockets before: ", allSockets.length);
-        })
+        if(parsedMsg.type ==='chat'){
+
+            // const curr_user_room = allSockets.find( (x)=> x.socket == socket)?.room; ye easy way hai room nikalne ka but still niche wala OG
+
+            console.log('user open to chat')
+
+            let currentUserRoom = null;
+
+            for(let i=0;i<allSockets.length;i++){
+
+                if(allSockets[i]?.socket == socket){
+                    currentUserRoom = allSockets[i]?.room;
+                }
+            }
+
+            //ab broadcast kr jo iss specific room se connect hai. 
+
+            for(let i=0;i<allSockets.length;i++){
+
+                if(allSockets[i]?.room == currentUserRoom){
+                    allSockets[i]?.socket.send(parsedMsg.payload.message);
+                }
+            }
+        }
+
     })
 
     socket.on("close",()=>{
 
-        allSockets = allSockets.filter(x => x != socket);
-        console.log("size allsockets after: ", allSockets.length);
+        
     })
 })
